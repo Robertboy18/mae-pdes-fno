@@ -223,7 +223,7 @@ def main(args: argparse):
     ## Training
     num_epochs = args.num_epochs
 
-    save_path= f'/pscratch/sd/r/rgeorge/checkpoints/{name}.pth'
+    save_path= f'/pscratch/sd/r/rgeorge/checkpoint1/{name}.pth'
     min_val_loss = 10e10
     for epoch in range(num_epochs):
         train(args, 

@@ -166,7 +166,7 @@ def main(args: argparse):
     ## Training
     criterion = LpLoss(d = args.pde_dim, p = 2)
     num_epochs = args.num_epochs
-    save_path= f'checkpoints/{name}.pth'
+    save_path= f'/pscratch/sd/r/rgeorge/checkpoint1/{name}.pth'
     min_val_loss = 10e10
 
     verbose = args.verbose

@@ -50,7 +50,7 @@ For specific experiments, please refer the appropriate .yaml file and command li
 
 ### MAE Pretraining
 ```
-python pretrain.py --config=configs/[dim]/pretrain.yaml
+python pretrain.py --config=configs/2D/pretrain-fno.yaml
 ```
 ### Feature Prediction
 ```

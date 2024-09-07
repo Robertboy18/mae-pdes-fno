@@ -3,7 +3,7 @@
 #######################################################################################
 batch_size: 64
 val_batch_size: 64
-num_epochs: 5
+num_epochs: 1
 description: MAE_Aug
 multiprocessing: false
 device: cuda:0

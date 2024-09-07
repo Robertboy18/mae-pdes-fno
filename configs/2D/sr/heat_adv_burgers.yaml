@@ -10,7 +10,7 @@ multiprocessing: false
 device: cuda:0
 seed: 0
 wandb_mode: online
-pretrained_path: none
+pretrained_path: '/pscratch/sd/r/rgeorge/checkpoint1/MAE_Aug_fno_64_mask0.5_aug0.5_971140.pth'
 freeze: false
 normalize: false
 verbose: false
@@ -56,9 +56,9 @@ pde: heat_adv_burgers
 pde_dim: 2
 n_vars: 5
 norm_vars: false
-num_samples: 3072
-train_path: YOUR_PATH_TO_TRAINING_DATA
-valid_path: YOUR_PATH_TO_VALID_DATA
+num_samples: 2
+train_path: /pscratch/sd/r/rgeorge/hong/2D/train/HeaAdvBurgers_3072.h5
+valid_path: /pscratch/sd/r/rgeorge/hong/2D/valid/HeaAdvBurgers_768.h5
 norm_stat_path: checkpoints/stats/Stats_HeatAdvBurgers_2D_train.pkl
 base_resolution: [100, 32, 32]
 t_range: [0, 2]
