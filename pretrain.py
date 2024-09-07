@@ -65,9 +65,12 @@ def train(args: argparse,
 
             # Augmentation
             u_window = u_window.to(device)
+            #print("uwindow", u_window.shape)
             u_window = augmentation(u_window)
-
+            
+            #print("uwindow_aug", u_window.shape)
             z = embedder(u_window, loader.dataset.x, loader.dataset.t, start_time) # b, emb_dim
+            #print("z embedd", z.shape)
             loss = model(u_window, embedding=z, normalizer=normalizer)
 
             # Backward pass
@@ -135,16 +138,20 @@ def test(args: argparse,
 
                 z = embedder(u_window, loader.dataset.x, loader.dataset.t, same_steps)  # b, emb_dim
                 u_orig, u_rec, mask = model(u_window, embedding=z, normalizer=normalizer, features=True)
-
+                
+                #print("original", u_orig.shape, u_rec.shape, mask.shape)
                 u_rec_total = u_orig * (1-mask) + u_rec * mask
                 u_masked = u_orig * (1-mask)
-
+                
+                #print("new", u_rec_total.shape, u_masked.shape, u_orig.shape)
+                #print("assert", (u_rec*mask).shape, (u_orig*mask).shape)
                 assert F.mse_loss(u_rec*mask, u_orig*mask) == F.mse_loss(u_rec_total, u_orig)
 
                 u_t = torch.cat((u_t, u_orig), dim=1)
                 u_masked_t = torch.cat((u_masked_t, u_masked), dim=1)
                 u_rec_t = torch.cat((u_rec_t, u_rec_total), dim=1)
             
+            #print("error", u_t.shape, u_rec_t.shape)
             error = F.mse_loss(u_t, u_rec_t).item()
             errors.append(error)
     avg_error = sum(errors)/len(errors)
@@ -201,8 +208,11 @@ def main(args: argparse):
     normalizer = get_normalizer(args, train_loader)
 
     # Defining Model
-    model, optimizer, scheduler = get_mae(args, args.device)
-
+    if not args.encoder == "fno":
+        model, optimizer, scheduler = get_mae(args, args.device)
+    else:
+        model, optimizer, scheduler = get_fno(args, args.device)
+    
     if isinstance(embedder, Embedder2D) and args.embedding_mode=='spatial':
         optimizer_embedder = torch.optim.AdamW(embedder.parameters(), args.min_lr)
         print("Added embedder params to optimizer")
@@ -213,7 +223,7 @@ def main(args: argparse):
     ## Training
     num_epochs = args.num_epochs
 
-    save_path= f'checkpoints/{name}.pth'
+    save_path= f'/pscratch/sd/r/rgeorge/checkpoints/{name}.pth'
     min_val_loss = 10e10
     for epoch in range(num_epochs):
         train(args, 

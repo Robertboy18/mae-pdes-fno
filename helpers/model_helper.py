@@ -12,6 +12,8 @@ from models.FNO.fno1d import FNO1d_bundled
 from models.FNO.fno2d import FNO2d_bundled
 from models.FNO.fno1d_cond import FNO1d_bundled_cond
 from models.FNO.fno2d_cond import FNO2d_bundled_cond
+from models.FNO.fno_encoder import FNOEncoder
+from models.FNO.mae import FNOMAE
 from models.Unet.unet_2d import Unet2D
 from models.Unet.unet_2d_cond import Unet2D_cond 
 from models.Unet.unet_1d_cond import Unet1D_cond
@@ -22,7 +24,6 @@ from models.Resnet.resnet_2d_cond import Resnet_2D_cond
 from models.Resnet.resnet_1d_cond import Resnet_1D_cond
 from models.VIT.mae import MAE
 from models.VIT.mae_pad import MAE_Padded
-
 from common.utils import load_pretrained, EncoderWrapper, Embedder, Embedder2D, Normalizer, TimestepWrapper, SRWrapper
 from common.datasets import PDEDataset, PDEDataset2D
 from common.augmentation import KdVBurgers_augmentation, AugmentationWrapper1D, Identity_Aug
@@ -168,10 +169,16 @@ def get_backbone(args, device, encoder):
     elif encoder == "Linear":
         backbone = nn.Linear(args.n_vars, args.embedding_dim).to(device)
         print("Initialized Linear Encoder")
+    elif encoder == 'FNO2D':
+        backbone = FNOEncoder(n_modes=args.n_modes,
+                              in_dim=args.in_dim,
+                              out_dim=args.out_dim,
+                              n_layers=args.n_layers,
+                              embed_dim=args.embed_dim,
+                              use_projection=args.channel_mlp)
     else:
         print("No backbone initialized")
         args.embedding_dim = 0
-
     return backbone
 
 def get_encoder(args, device):
@@ -422,6 +429,66 @@ def get_mae(args, device):
         scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(optimizer, T_max=args.base_resolution[0] * (args.num_samples // args.batch_size + 1), eta_min=args.min_lr//100)
 
         print(f"Loaded pretrained model from {args.pretrained_path} at epoch : {checkpoint['epoch']}")
+        print("Loaded cosine annealing scheduler")
+
+    return model, optimizer, scheduler
+
+
+def get_fno(args, device):
+    encoder = FNOEncoder(
+        n_modes=args.n_modes,
+        in_dim=args.in_dim,
+        out_dim=args.out_dim,
+        n_layers=args.n_layers,
+        embed_dim=args.encoder_width
+    ).to(device)
+
+    model = FNOMAE(
+        encoder=encoder,
+        decoder_modes=args.decoder_modes,
+        decoder_width=args.decoder_width,
+        masking_ratio=args.masking_ratio,
+        decoder_layers=args.decoder_layers
+    ).to(device)
+
+    optimizer = torch.optim.AdamW(
+        model.parameters(),
+        lr=args.min_lr,
+        betas=(args.beta1, args.beta2),
+    )
+
+    scheduler = torch.optim.lr_scheduler.OneCycleLR(
+        optimizer,
+        max_lr=args.max_lr,
+        steps_per_epoch=args.base_resolution[0] * (args.num_samples // args.batch_size + 1),
+        epochs=args.num_epochs,
+        pct_start=args.pct_start,
+        anneal_strategy='cos',
+        div_factor=args.div_factor,
+        final_div_factor=args.final_div_factor
+    )
+
+    print("Initialized FNOMAE and OneCycleLR Scheduler")
+
+    if args.multiprocessing:
+        model = nn.parallel.DistributedDataParallel(model, device_ids=[device])
+
+    model_parameters = filter(lambda p: p.requires_grad, model.parameters())
+    params = sum([torch.prod(torch.tensor(p.size())) for p in model_parameters])
+    print(f'Number of model parameters: {params}')
+
+    if args.pretrained_path != "none":
+        checkpoint = torch.load(args.pretrained_path, map_location=device)
+        model.load_state_dict(checkpoint['model_state_dict'])
+        optimizer.load_state_dict(checkpoint['optimizer_state_dict'])
+
+        scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(
+            optimizer,
+            T_max=args.base_resolution[0] * (args.num_samples // args.batch_size + 1),
+            eta_min=args.min_lr // 100
+        )
+
+        print(f"Loaded pretrained model from {args.pretrained_path} at epoch: {checkpoint['epoch']}")
         print("Loaded cosine annealing scheduler")
 
     return model, optimizer, scheduler

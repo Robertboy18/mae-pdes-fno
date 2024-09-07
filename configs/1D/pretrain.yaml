@@ -3,7 +3,7 @@
 #######################################################################################
 batch_size: 256
 val_batch_size: 64
-num_epochs: 20
+num_epochs: 1
 description: MAE
 multiprocessing: false
 device: cuda:0
@@ -53,10 +53,10 @@ pde: kdv_burgers
 pde_dim: 1
 norm_vars: false 
 add_vars: false 
-num_samples: 10000
-pretrain_path: YOUR_PATH_TO_PRETRAINING_DATA
-train_path: YOUR_PATH_TO_TRAINING_DATA
-valid_path: YOUR_PATH_TO_VALID_DATA
+num_samples: 10
+pretrain_path: /pscratch/sd/r/rgeorge/hong/2D/pretrain/HeaAdvBurgers_12288.h5
+train_path: /pscratch/sd/r/rgeorge/hong/2D/train/HeaAdvBurgers_3072.h5
+valid_path: /pscratch/sd/r/rgeorge/hong/2D/valid/HeaAdvBurgers_768.h5
 norm_stat_path: checkpoints/stats/Stats_KdVBurgers_1D_Pretrain.pkl
 base_resolution: [250, 100]
 t_range: [0, 2]
