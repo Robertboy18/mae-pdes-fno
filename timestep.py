@@ -139,7 +139,9 @@ def main(args: argparse):
     
     # Encoder
     model, optimizer, scheduler = get_model(args, device)
-
+    
+    print("Model", model)
+    
     # Extras
     augmentation = get_augmentation(args, train_loader.dataset.dx, train_loader.dataset.dt)
     embedder = get_embedder(args)

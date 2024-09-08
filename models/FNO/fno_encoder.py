@@ -26,7 +26,7 @@ class FNOEncoder(nn.Module):
         self.out_channels = out_dim
         self.hidden_channels = embed_dim 
         self.projection_channels = int(self.hidden_channels) if use_projection else None
-
+        
         self.encoder = FNO(
             n_modes = n_modes,
             in_channels = self.in_channels,
@@ -37,6 +37,6 @@ class FNOEncoder(nn.Module):
             projection_channels = self.hidden_channels,
         )
         
-    def forward(self, x: torch.Tensor):
+    def forward(self, x: torch.Tensor, embedding=None, normalizer=None):
         x = self.encoder(x)
         return x

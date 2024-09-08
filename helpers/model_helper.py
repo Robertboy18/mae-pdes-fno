@@ -174,8 +174,7 @@ def get_backbone(args, device, encoder):
                               in_dim=args.in_dim,
                               out_dim=args.out_dim,
                               n_layers=args.n_layers,
-                              embed_dim=args.embed_dim,
-                              use_projection=args.channel_mlp)
+                              embed_dim=args.encoder_width)
     else:
         print("No backbone initialized")
         args.embedding_dim = 0
@@ -183,7 +182,8 @@ def get_backbone(args, device, encoder):
 
 def get_encoder(args, device):
     backbone = get_backbone(args, device, args.encoder)
-
+    
+    #print("BACKBONE", backbone)
     if backbone == None:
         return None
     
@@ -341,9 +341,10 @@ def get_model(args, device):
     encoder = get_encoder(args, device)
     conditional = False if args.encoder == "none" else True
     forecaster = get_forecaster(args, device, args.model, conditional=conditional)
-
-    model = TimestepWrapper(model=forecaster, encoder=encoder, device=device, add_vars=args.add_vars)
-
+    
+    #print("INITIALIZED", forecaster)
+    model = TimestepWrapper(model=forecaster, encoder=encoder, device=device, add_vars=args.add_vars, encoder_type=args.encoder)
+    
     model_parameters = filter(lambda p: p.requires_grad, model.parameters())
     params = sum([np.prod(p.size()) for p in model_parameters])
     print(f'Number of model parameters: {params}')
@@ -357,11 +358,14 @@ def get_model(args, device):
     return model, optimizer, scheduler
 
 def get_sr_model(args, device):
-    encoder = get_encoder(args, device) # VIT or Linear or none
+    encoder = get_encoder(args, device) # VIT or Linear or FNO
     conditional = False if args.encoder == "none" else True
-
+    
+    print("ENCODER", encoder)
     network = get_forecaster(args, device, args.network, conditional=conditional,) # Resnet1D, Resnet2D
+    print("NETWORK", network)
     operator = get_forecaster(args, device, args.operator, conditional=conditional,) # FNO1D, FNO2D
+    print("Operator", operator)
 
     model = SRWrapper(args=args,
                       network = network,

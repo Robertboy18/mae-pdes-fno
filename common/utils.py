@@ -303,22 +303,24 @@ class EncoderWrapper(nn.Module):
         backbone,
     ):
         super().__init__()
-
+        
         self.backbone = backbone
         self.args = args
-        self.linear1 = nn.Linear(args.encoder_dim, args.encoder_dim // 2)
-        self.linear2 = nn.Linear(args.encoder_dim // 2, args.embedding_dim)
-        self.activation = nn.GELU()
-        self.norm1 = nn.LayerNorm(args.encoder_dim)
-        self.norm2 = nn.LayerNorm(args.encoder_dim // 2)
+        if self.args.encoder != 'FNO2D':
+            self.linear1 = nn.Linear(args.encoder_dim, args.encoder_dim // 2)
+            self.linear2 = nn.Linear(args.encoder_dim // 2, args.embedding_dim)
+            self.activation = nn.GELU()
+            self.norm1 = nn.LayerNorm(args.encoder_dim)
+            self.norm2 = nn.LayerNorm(args.encoder_dim // 2)
 
     def forward(self, x, embedding = None, normalizer = None):
         x = self.backbone(x, embedding = embedding, normalizer = normalizer)
-        x = self.norm1(x)
-        x = self.linear1(x)
-        x = self.activation(x)
-        x = self.norm2(x)
-        x = self.linear2(x)
+        if self.args.encoder != 'FNO2D':
+            x = self.norm1(x)
+            x = self.linear1(x)
+            x = self.activation(x)
+            x = self.norm2(x)
+            x = self.linear2(x)
         return x
     
 class Normalizer:
@@ -413,7 +415,8 @@ class LpLoss(object):
 class TimestepWrapper(nn.Module):
     def __init__(self, model, encoder=None, device='cuda:0', add_vars = False):
         super().__init__()
-        self.model = model 
+        self.model = model
+        print("INITIALZED FORECASTER", self.model)
         self.encoder = encoder
         self.add_vars = add_vars 
         self.device = device
@@ -424,13 +427,13 @@ class TimestepWrapper(nn.Module):
     def forward(self, data, variables=None, z=None):
         data = data.to(self.device)
         if self.encoder is not None:
-
             if self.add_vars:
                 variables = dict2tensor(variables).to(self.device)
                 embeddings = self.encoder(variables)
             else:
                 embeddings = self.encoder(data, z)
-
+            #print("embeddings", embeddings.shape, data.shape)
+            print(self.model)
             pred = self.model(data, embeddings)
         else:
             pred = self.model(data)
@@ -464,8 +467,10 @@ class SRWrapper(nn.Module):
         self.scale_factor = args.scale_factor
         self.pde_dim = args.pde_dim
         self.device = device
+        self.args = args
         self.add_vars = args.add_vars
         self.criterion = nn.MSELoss()
+        self.pde_type = args.encoder
 
     def discretization_inversion(self, data):
         if len(data.shape) == 3:
@@ -494,13 +499,26 @@ class SRWrapper(nn.Module):
     def forward(self, data, variables=None):
         data_lowres, data = self.downsample(data)
         data_lowres = data_lowres.to(self.device)
-
+        
         if self.encoder is not None:
             if self.add_vars:
                 variables = dict2tensor(variables).to(self.device)
                 emb = self.encoder(variables)
             else:
-                emb = self.encoder(data_lowres) # b, embd_dim
+                if self.pde_type == 'FNO2D':
+                    data_lowres = data_lowres.unsqueeze(1)
+                emb = self.encoder(data_lowres) # [b, embd_dim] # unsqueeze only for FNO
+                # emb = [b, encoder.out, 16, x, y]
+                # now do mean pooling to remove teh channels or reduce it to certain dimension and move it to time
+            if self.pde_type == 'FNO2D':
+                data_lowres = data_lowres.squeeze()
+                batch, channels, time, spx, spy = emb.shape
+                channels1 = channels//self.args.resnet_features
+                final_channels = channels//self.args.resnet_embedd
+                emb = emb.reshape(batch, self.args.resnet_embedd, final_channels, time, spx, spy) # reshaping
+                emb = torch.mean(emb, dim=1) # pooling
+                emb = emb.permute(0, 2, 1, 3, 4)
+                emb = emb.reshape(batch, time*final_channels, spx, spy)
             z_lowres = self.network(data_lowres, emb)
         else:
             z_lowres = self.network(data_lowres)
@@ -508,6 +526,9 @@ class SRWrapper(nn.Module):
         z_upsample = self.discretization_inversion(z_lowres)
 
         if self.encoder is not None:
+            if self.pde_type == 'FNO2D': 
+                emb = torch.mean(emb, dim=2).squeeze() # only for spatial
+                emb = torch.mean(emb, dim=2).squeeze() # only spatial
             data_out = self.operator(z_upsample, emb)
         else:
             data_out = self.operator(z_upsample)

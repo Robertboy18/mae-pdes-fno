@@ -188,12 +188,13 @@ def main(args: argparse):
 
     # Encoder
     model, optimizer, scheduler = get_sr_model(args, device)
-
+    
+    print("Model", model)
     normalizer = get_normalizer(args, train_loader)
 
     ## Training
     num_epochs = args.num_epochs
-    save_path= f'checkpoints/{name}.pth'
+    save_path= f'/pscratch/sd/r/rgeorge/checkpoint1/{name}.pth'
     min_val_loss = 10e10
 
     for epoch in range(num_epochs):

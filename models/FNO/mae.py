@@ -33,7 +33,6 @@ class FNOMAE(nn.Module):
             embed_dim=decoder_width,
         )
         
-        #print(self.decoder)
         # Mask token
         self.mask_token = nn.Parameter(torch.randn(decoder_width))
 

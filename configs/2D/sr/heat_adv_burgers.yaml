@@ -10,7 +10,7 @@ multiprocessing: false
 device: cuda:0
 seed: 0
 wandb_mode: online
-pretrained_path: '/pscratch/sd/r/rgeorge/checkpoint1/MAE_Aug_fno_64_mask0.5_aug0.5_971140.pth'
+pretrained_path: '/pscratch/sd/r/rgeorge/checkpoint1/MAE_Aug_fno_64_mask0.5_aug0.5_971140.pth' #'/pscratch/sd/r/rgeorge/checkpoint1/MAE_Aug_VIT3D_64_mask0.9_aug0.5_971413.pth' 
 freeze: false
 normalize: false
 verbose: false
@@ -19,7 +19,7 @@ add_vars: false
 #######################################################################################
 # Model
 #######################################################################################
-encoder: none
+encoder: FNO2D
 pad: False
 pos_mode: none
 encoder_pool: cls
@@ -33,7 +33,7 @@ decoder_dim: 32
 decoder_depth: 4
 decoder_heads: 16
 decoder_dim_head: 16
-image_size: [32, 32]
+image_size: [64, 64]
 patch_size: [4, 4]
 temporal_patch_size: 4
 masking_ratio: 0.9
@@ -48,6 +48,14 @@ final_div_factor: 1000
 dropout: 0.0
 emb_dropout: 0.0
 embedding_dim: 32
+n_modes: [8, 32, 32]
+in_dim: 1
+out_dim: 128
+n_layers: 1
+encoder_width: 128
+decoder_modes: [8, 32, 32]
+decoder_width: 128
+decoder_layers: 1
 
 #######################################################################################
 # Data
@@ -56,7 +64,7 @@ pde: heat_adv_burgers
 pde_dim: 2
 n_vars: 5
 norm_vars: false
-num_samples: 2
+num_samples: 1024
 train_path: /pscratch/sd/r/rgeorge/hong/2D/train/HeaAdvBurgers_3072.h5
 valid_path: /pscratch/sd/r/rgeorge/hong/2D/valid/HeaAdvBurgers_768.h5
 norm_stat_path: checkpoints/stats/Stats_HeatAdvBurgers_2D_train.pkl
@@ -91,5 +99,6 @@ nr_gt_steps: 2
 horizon: 96
 
 network: Resnet2D
-resnet_features: 64
+resnet_features: 32
+resnet_embedd: 64 #this is for the numb of channels in embedd * time = embedd for fourier
 resnet_blocks: 4

@@ -54,15 +54,15 @@ python pretrain.py --config=configs/2D/pretrain-fno.yaml
 ```
 ### Feature Prediction
 ```
-python regression.py --config=configs/[dim]/regression/[pde].yaml 
+python regression.py --config=configs/2D/regression/[pde].yaml 
 ```
 ### Time-stepping
 ```
-python timestep.py --config=configs/[dim]/timestepping/[pde].yaml 
+python timestep.py --config=configs/2D/timestep/heat_adv_burgers.yaml 
 ```
 ### Super-resolution
 ```
-python sr.py --config=configs/[dim]/sr/[pde].yaml 
+python sr.py --config=configs/2D/sr/heat_adv_burgers.yaml 
 ```
 
 ## Citation

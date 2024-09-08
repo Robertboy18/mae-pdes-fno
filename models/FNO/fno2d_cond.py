@@ -25,6 +25,7 @@ class FreqLinear(nn.Module):
 
     def forward(self, x):
         B = x.shape[0]
+        #print("SHAPE", x.shape, self.weights.shape)
         h = torch.einsum("tc,cm->tm", x, self.weights) + self.bias
         h = h.reshape(B, self.modes1, self.modes2, 2, 2)
         return torch.view_as_complex(h)
@@ -51,7 +52,9 @@ class SpectralConv2d_cond(nn.Module):
         self.cond_emb = FreqLinear(cond_channels, self.modes1, self.modes2)
 
     def forward(self, x, emb):
+        #print("EMB 12", emb.shape)
         emb12 = self.cond_emb(emb)
+        #print("em", emb12.shape)
         # emb12 has shape (batch, modes1, modes2, 2)
         emb1 = emb12[..., 0]
         emb2 = emb12[..., 1]
@@ -103,6 +106,7 @@ class FourierBasicBlock(nn.Module):
     def forward(self, x: torch.Tensor, emb: torch.Tensor):
         # x has shape [b, c, x, y]
         # emb has shape [b, cond_channels]
+        #print("x.shape", x.shape, emb.shape)
         x1 = self.fourier1(x, emb)
         x2 = self.conv1(x)
         emb_out = self.cond_emb(emb)
@@ -139,7 +143,8 @@ class FNO2d_bundled_cond(nn.Module):
         self.width = width
         self.in_channels = time_window
         self.out_channels = time_window
-
+        
+        #print("INITIALIZED CHANNELS", cond_channels)
         self.conv_in1 = nn.Conv2d(
             self.in_channels,
             self.width,

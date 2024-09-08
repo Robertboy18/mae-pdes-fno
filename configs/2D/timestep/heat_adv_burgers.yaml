@@ -18,7 +18,7 @@ add_vars: false
 #######################################################################################
 # Model
 #######################################################################################
-encoder: none
+encoder: FNO2D
 pad: False
 pos_mode: none
 encoder_pool: cls
@@ -47,6 +47,14 @@ final_div_factor: 1000
 dropout: 0.0
 emb_dropout: 0.0
 embedding_dim: 32
+n_modes: [8, 32, 32]
+in_dim: 1
+out_dim: 128
+n_layers: 1
+encoder_width: 128
+decoder_modes: [8, 32, 32]
+decoder_width: 128
+decoder_layers: 1
 
 #######################################################################################
 # Data
