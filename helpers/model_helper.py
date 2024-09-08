@@ -361,11 +361,8 @@ def get_sr_model(args, device):
     encoder = get_encoder(args, device) # VIT or Linear or FNO
     conditional = False if args.encoder == "none" else True
     
-    print("ENCODER", encoder)
     network = get_forecaster(args, device, args.network, conditional=conditional,) # Resnet1D, Resnet2D
-    print("NETWORK", network)
     operator = get_forecaster(args, device, args.operator, conditional=conditional,) # FNO1D, FNO2D
-    print("Operator", operator)
 
     model = SRWrapper(args=args,
                       network = network,
