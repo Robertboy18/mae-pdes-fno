@@ -413,13 +413,14 @@ class LpLoss(object):
         return self.rel(x, y)
 
 class TimestepWrapper(nn.Module):
-    def __init__(self, model, encoder=None, device='cuda:0', add_vars = False):
+    def __init__(self, model, encoder=None, device='cuda:0', add_vars = False, encoder_type=None, args=None):
         super().__init__()
         self.model = model
-        print("INITIALZED FORECASTER", self.model)
         self.encoder = encoder
         self.add_vars = add_vars 
         self.device = device
+        self.entype = encoder_type
+        self.args = args
 
         if add_vars:
             print("Adding variables to input data")
@@ -431,9 +432,21 @@ class TimestepWrapper(nn.Module):
                 variables = dict2tensor(variables).to(self.device)
                 embeddings = self.encoder(variables)
             else:
+                if self.entype == 'FNO2D':
+                    data = data.unsqueeze(1)
                 embeddings = self.encoder(data, z)
-            #print("embeddings", embeddings.shape, data.shape)
-            print(self.model)
+            if self.entype == 'FNO2D': 
+                data = data.squeeze()
+                embeddings = torch.mean(embeddings, dim=3).squeeze() # only for spatial
+                embeddings = torch.mean(embeddings, dim=3).squeeze() # only spatial [b, c, time]
+                batch, channels, time = embeddings.shape
+                pool = channels//self.args.embedding_dim_time
+                #print(pool)
+                embeddings= embeddings.reshape(batch, self.args.embedding_dim_time, pool, time)
+                #print(embeddings.shape)
+                embeddings = torch.mean(embeddings, dim = 1).squeeze()
+                embeddings = embeddings.reshape(batch, time*pool)
+            #print(data.shape, embeddings.shape)
             pred = self.model(data, embeddings)
         else:
             pred = self.model(data)

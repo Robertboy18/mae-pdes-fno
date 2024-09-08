@@ -343,7 +343,7 @@ def get_model(args, device):
     forecaster = get_forecaster(args, device, args.model, conditional=conditional)
     
     #print("INITIALIZED", forecaster)
-    model = TimestepWrapper(model=forecaster, encoder=encoder, device=device, add_vars=args.add_vars, encoder_type=args.encoder)
+    model = TimestepWrapper(model=forecaster, encoder=encoder, device=device, add_vars=args.add_vars, encoder_type=args.encoder, args = args)
     
     model_parameters = filter(lambda p: p.requires_grad, model.parameters())
     params = sum([np.prod(p.size()) for p in model_parameters])

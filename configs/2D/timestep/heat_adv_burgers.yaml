@@ -3,7 +3,7 @@
 #######################################################################################
 batch_size: 16
 val_batch_size: 16
-num_epochs: 1
+num_epochs: 5
 description: Forecast_2D
 multiprocessing: false
 device: cuda:0
@@ -21,19 +21,6 @@ add_vars: false
 encoder: FNO2D
 pad: False
 pos_mode: none
-encoder_pool: cls
-encoder_dim: 256
-encoder_mlp_dim: 512
-encoder_heads: 32
-encoder_dim_head: 32
-encoder_depth: 8
-encoder_temporal_depth: 4
-decoder_dim: 32
-decoder_depth: 4
-decoder_heads: 16
-decoder_dim_head: 16
-image_size: [64, 64]
-patch_size: [4, 4]
 temporal_patch_size: 4
 masking_ratio: 0.9
 scheduler: onecycle
@@ -46,7 +33,8 @@ div_factor: 10
 final_div_factor: 1000
 dropout: 0.0
 emb_dropout: 0.0
-embedding_dim: 32
+embedding_dim: 32 # this is channels
+embedding_dim_time: 64 # double of last
 n_modes: [8, 32, 32]
 in_dim: 1
 out_dim: 128
@@ -63,7 +51,7 @@ pde: heat_adv_burgers
 pde_dim: 2
 n_vars: 5
 norm_vars: false
-num_samples: 2
+num_samples: 10
 train_path: /pscratch/sd/r/rgeorge/hong/2D/train/HeaAdvBurgers_3072.h5
 valid_path: /pscratch/sd/r/rgeorge/hong/2D/valid/HeaAdvBurgers_768.h5
 norm_stat_path: checkpoints/stats/Stats_HeatAdvBurgers_2D_train.pkl
