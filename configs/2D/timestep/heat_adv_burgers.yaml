@@ -33,9 +33,10 @@ div_factor: 10
 final_div_factor: 1000
 dropout: 0.0
 emb_dropout: 0.0
-embedding_dim: 32 # this is channels
-embedding_dim_time: 64 # double of last
-n_modes: [8, 32, 32]
+## TODO: Match these numbers
+embedding_dim: 128 # this is channels
+embedding_dim_time: 256 # double of last
+n_modes: [6, 32, 32]
 in_dim: 1
 out_dim: 128
 n_layers: 1

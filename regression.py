@@ -77,7 +77,12 @@ def train(args: argparse,
             if args.pde == "kdv_burgers_resolution" or args.pde == "heat_adv_burgers_resolution":
                 loss = criterion(preds, labels.to(device))
             else:
-                loss = criterion(preds, targets.to(device))
+                if args.encoder == 'FNO2D':
+                    preds = torch.mean(preds, dim = [2,3,4]).squeeze() # squeeze spatial and time # bad idea
+                    preds1 = preds[:, :targets.shape[1]]
+                else:
+                    preds1 = preds
+                loss = criterion(preds1.to(device), targets.to(device))
             loss.backward()
             losses.append(loss.detach() / args.batch_size)
             optimizer.step()
@@ -142,7 +147,12 @@ def test(args: argparse,
             if args.pde == "kdv_burgers_resolution" or args.pde == "heat_adv_burgers_resolution":
                 loss = criterion(preds, labels.to(device))
             else:
-                loss = criterion(preds, targets.to(device))
+                if args.encoder == 'FNO2D':
+                    preds = torch.mean(preds, dim = [2,3,4]).squeeze() # squeeze spatial and time # bad idea
+                    preds1 = preds[:, :targets.shape[1]] # worst idea
+                else:
+                    preds1 = preds
+                loss = criterion(preds1.to(device), targets.to(device))
             losses.append(loss.detach() / args.batch_size)
         
         losses = torch.stack(losses)
@@ -201,6 +211,7 @@ def main(args: argparse):
 
     # Encoder
     encoder, optimizer, scheduler = get_regression_model(args, device)
+    print("Model", encoder)
     criterion = torch.nn.MSELoss() if args.mode == "regression" else torch.nn.CrossEntropyLoss()
 
     augmentation = get_augmentation(args, train_loader.dataset.dx, train_loader.dataset.dt)
@@ -227,7 +238,7 @@ def main(args: argparse):
 
     ## Training
     num_epochs = args.num_epochs
-    save_path= f'checkpoints/{name}.pth'
+    save_path= f'/pscratch/sd/r/rgeorge/checkpoint1/{name}.pth'
     min_val_loss = 10e10
 
     for epoch in range(num_epochs):

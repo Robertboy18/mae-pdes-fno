@@ -314,7 +314,11 @@ class EncoderWrapper(nn.Module):
             self.norm2 = nn.LayerNorm(args.encoder_dim // 2)
 
     def forward(self, x, embedding = None, normalizer = None):
-        x = self.backbone(x, embedding = embedding, normalizer = normalizer)
+        if self.args.mode != 'regression':
+            x = self.backbone(x, embedding = embedding, normalizer = normalizer)
+        else:
+            x = x.unsqueeze(1)
+            x = self.backbone(x, embedding = embedding, normalizer = normalizer)
         if self.args.encoder != 'FNO2D':
             x = self.norm1(x)
             x = self.linear1(x)

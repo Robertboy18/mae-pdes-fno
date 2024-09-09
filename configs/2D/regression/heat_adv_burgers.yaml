@@ -10,7 +10,7 @@ device: cuda:0
 seed: 0
 wandb_mode: online
 n_inner: 1
-pretrained_path: none
+pretrained_path: '/pscratch/sd/r/rgeorge/checkpoint1/MAE_Aug_fno_64_mask0.5_aug0.5_971140.pth'
 freeze: false
 normalize: false
 mode: regression
@@ -18,7 +18,7 @@ mode: regression
 #######################################################################################
 # Model
 #######################################################################################
-encoder: VIT3D
+encoder: FNO2D
 pad: False
 pos_mode: none
 encoder_pool: cls
@@ -47,6 +47,17 @@ final_div_factor: 1000
 dropout: 0.0
 emb_dropout: 0.0
 embedding_dim: 5
+## TODO: Match these numbers
+#embedding_dim: 128 # this is channels
+embedding_dim_time: 256 # double of last
+n_modes: [8, 32, 32]
+in_dim: 1
+out_dim: 128
+n_layers: 1
+encoder_width: 128
+decoder_modes: [8, 32, 32]
+decoder_width: 128
+decoder_layers: 1
 
 #######################################################################################
 # Data
@@ -54,9 +65,9 @@ embedding_dim: 5
 pde: heat_adv_burgers
 pde_dim: 2
 norm_vars: true
-num_samples: 3072
-train_path: YOUR_PATH_TO_TRAINING_DATA
-valid_path: YOUR_PATH_TO_VALID_DATA
+num_samples: 10
+train_path: /pscratch/sd/r/rgeorge/hong/2D/train/HeaAdvBurgers_3072.h5
+valid_path: /pscratch/sd/r/rgeorge/hong/2D/valid/HeaAdvBurgers_768.h5
 norm_stat_path: checkpoints/stats/Stats_HeatAdvBurgers_2D_train.pkl
 base_resolution: [100, 64, 64]
 t_range: [0, 2]

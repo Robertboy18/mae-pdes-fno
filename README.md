@@ -54,7 +54,7 @@ python pretrain.py --config=configs/2D/pretrain-fno.yaml
 ```
 ### Feature Prediction
 ```
-python regression.py --config=configs/2D/regression/[pde].yaml 
+python regression.py --config=configs/2D/regression/heat_adv_burgers.yaml 
 ```
 ### Time-stepping
 ```
