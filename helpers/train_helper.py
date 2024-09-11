@@ -3,6 +3,42 @@ import random
 from torch.utils.data import DataLoader
 from common.utils import *
 
+def get_pos_enc(u_window: torch.Tensor, start_times: list):
+    """
+    Generate positional encodings for the given u_window.
+    
+    Args:
+    u_window (torch.Tensor): Input tensor of shape [batch_size, 16, 128, 128]
+    start_times (list): List of start times for each batch item
+    
+    Returns:
+    torch.Tensor: Positional encodings of shape [batch_size, 3, 16, 128, 128]
+    """
+    batch_size, n_t, n_x, n_y = u_window.shape
+    device = u_window.device
+
+    # Generate normalized x and y coordinates
+    x = torch.linspace(0, 1, n_x, device=device)
+    y = torch.linspace(0, 1, n_y, device=device)
+    x, y = torch.meshgrid(x, y, indexing='ij')
+    
+    # Expand x and y to match the batch size and time steps
+    x = x.expand(batch_size, n_t, n_x, n_y)
+    y = y.expand(batch_size, n_t, n_x, n_y)
+    
+    # Generate normalized t coordinates
+    # Generate normalized t coordinates
+    max_time = max(start_times) + n_t
+    ts = torch.zeros(batch_size, n_t, n_x, n_y, device=device)
+    for i, start_time in enumerate(start_times):
+        t = torch.linspace(start_time, start_time + n_t, n_t, device=device) / max_time
+        ts[i] = t.view(n_t, 1, 1).expand(n_t, n_x, n_y)
+    
+    # Stack the positional encodings
+    pos = torch.stack([ts, x, y], dim=1)  # [batch_size, 3, n_t, n_x, n_y]
+    
+    return pos
+
 def training_loop(model: torch.nn.Module,
                   optimizer: torch.optim,
                   unrolling: list,
@@ -41,14 +77,18 @@ def training_loop(model: torch.nn.Module,
             for _ in range(unrolled_datas):
                 random_steps = [rs + data_creator.time_history for rs in random_steps]
                 _, labels = data_creator.create_data_labels(u, random_steps) 
-                
+            
                 z = embedder(data, loader.dataset.x, loader.dataset.t, random_steps)
-                pred = model(data, variables, z)
+                pos_enc = get_pos_enc(data, [0, 0, 0])  # [batch_size, 3, 16, 128, 128]
+                data1 = torch.cat([data.unsqueeze(1), pos_enc], dim=1) 
+                pred = model(data1, data, variables, z)                
                 data = pred
 
         # Forward pass of encoder model to make an embedding at t+1
         z = embedder(data, loader.dataset.x, loader.dataset.t, random_steps)
-        pred = model(data, variables, z)
+        pos_enc = get_pos_enc(data, [0, 0, 0])  # [batch_size, 3, 16, 128, 128]
+        data1 = torch.cat([data.unsqueeze(1), pos_enc], dim=1) 
+        pred = model(data1, data, variables, z)
         loss = criterion(pred, labels.to(device))
 
         # Backpropagation and stepping the optimizer
@@ -96,7 +136,9 @@ def test_timestep_losses(model: torch.nn.Module,
                 data, labels = data_creator.create_data_labels(u, same_steps)
 
                 z = embedder(data, loader.dataset.x, loader.dataset.t, same_steps)
-                pred = model(data, variables, z)
+                pos_enc = get_pos_enc(data, [0, 0, 0])  # [batch_size, 3, 16, 128, 128]
+                data1 = torch.cat([data.unsqueeze(1), pos_enc], dim=1) 
+                pred = model(data1, data, variables, z)
 
                 loss = criterion(pred, labels.to(device))
                 losses.append(loss)
@@ -135,8 +177,9 @@ def test_unrolled_losses(model: torch.nn.Module,
             data, labels = data_creator.create_data_labels(u, same_steps)
 
             z = embedder(data, loader.dataset.x, loader.dataset.t, same_steps)
-            pred = model(data, variables, z)
-
+            pos_enc = get_pos_enc(data, [0, 0, 0])  # [batch_size, 3, 16, 128, 128]
+            data1 = torch.cat([data.unsqueeze(1), pos_enc], dim=1) 
+            pred = model(data1, data, variables, z)
             loss = criterion(pred, labels.to(device))
             losses_tmp.append(loss)
             data = pred 
@@ -147,8 +190,10 @@ def test_unrolled_losses(model: torch.nn.Module,
                 _, labels = data_creator.create_data_labels(u, same_steps) 
 
                 z = embedder(data, loader.dataset.x, loader.dataset.t, same_steps)
-                pred = model(data, variables, z)
-
+                pos_enc = get_pos_enc(data, [0, 0, 0])  # [batch_size, 3, 16, 128, 128]
+                data1 = torch.cat([data.unsqueeze(1), pos_enc], dim=1) 
+                pred = model(data1, data, variables, z)
+                
                 loss = criterion(pred, labels.to(device))
                 losses_tmp.append(loss)
                 data = pred 

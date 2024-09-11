@@ -14,6 +14,42 @@ from common.augmentation import *
 from helpers.model_helper import *
 from tqdm import tqdm 
 
+def get_pos_enc(u_window: torch.Tensor, start_times: list):
+    """
+    Generate positional encodings for the given u_window.
+    
+    Args:
+    u_window (torch.Tensor): Input tensor of shape [batch_size, 16, 128, 128]
+    start_times (list): List of start times for each batch item
+    
+    Returns:
+    torch.Tensor: Positional encodings of shape [batch_size, 3, 16, 128, 128]
+    """
+    batch_size, n_t, n_x, n_y = u_window.shape
+    device = u_window.device
+
+    # Generate normalized x and y coordinates
+    x = torch.linspace(0, 1, n_x, device=device)
+    y = torch.linspace(0, 1, n_y, device=device)
+    x, y = torch.meshgrid(x, y, indexing='ij')
+    
+    # Expand x and y to match the batch size and time steps
+    x = x.expand(batch_size, n_t, n_x, n_y)
+    y = y.expand(batch_size, n_t, n_x, n_y)
+    
+    # Generate normalized t coordinates
+    # Generate normalized t coordinates
+    max_time = max(start_times) + n_t
+    ts = torch.zeros(batch_size, n_t, n_x, n_y, device=device)
+    for i, start_time in enumerate(start_times):
+        t = torch.linspace(start_time, start_time + n_t, n_t, device=device) / max_time
+        ts[i] = t.view(n_t, 1, 1).expand(n_t, n_x, n_y)
+    
+    # Stack the positional encodings
+    pos = torch.stack([ts, x, y], dim=1)  # [batch_size, 3, n_t, n_x, n_y]
+    
+    return pos
+    
 def train(args: argparse,
           epoch: int,
           model: torch.nn.Module,
@@ -57,10 +93,15 @@ def train(args: argparse,
             max_start_time = t_res - data_creator.time_history
             start_time = random.choices([t for t in range(max_start_time+1)], k=batch_size)
             u_window = data_creator.create_data(u, start_time) # b, time_window, nx
+            # Get positional encodings
+            pos_enc = get_pos_enc(u_window, [0, 0, 0])  # [batch_size, 3, 16, 128, 128]
 
-            u_window = u_window.to(device)
-
-            loss = model(u_window, variables)
+            # Combine u_window and positional encodings
+            u_window_with_pos = torch.cat([u_window.unsqueeze(1), pos_enc], dim=1) 
+            u_window_with_pos = u_window_with_pos.to(device)
+            
+            #print("New shape", u_window_with_pos.shape)
+            loss = model(data=u_window_with_pos, data_orig=u_window, variables=variables)
 
             # Backward pass
             loss.backward()
@@ -118,8 +159,14 @@ def test(args: argparse,
                 u_window = data_creator.create_data(u, same_steps)
 
                 u_window = u_window.to(device)
+                # Get positional encodings
+                pos_enc = get_pos_enc(u_window, [0, 0, 0])  # [batch_size, 3, 16, 128, 128]
 
-                loss = model(u_window, variables)
+                # Combine u_window and positional encodings
+                u_window_with_pos = torch.cat([u_window.unsqueeze(1), pos_enc], dim=1) 
+                u_window_with_pos = u_window_with_pos.to(device)
+
+                loss = model(data=u_window_with_pos, data_orig=u_window, variables=variables)
                 losses.append(loss.detach().item())
 
             errors.append(np.mean(losses))

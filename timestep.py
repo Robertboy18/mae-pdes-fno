@@ -11,6 +11,7 @@ import torch
 import random
 from tqdm import tqdm
 
+
 def train(args: argparse,
           epoch: int,
           model: torch.nn.Module,

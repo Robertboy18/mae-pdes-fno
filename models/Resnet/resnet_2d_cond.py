@@ -14,6 +14,8 @@ class ResidualDenseBlock_5C(nn.Module):
         self.conv5 = nn.Conv2d(nf + 4 * gc, nf, 3, 1, 1, bias=bias)
         self.lrelu = nn.LeakyReLU(negative_slope=0.2, inplace=True)
         
+        #emb_dim = 16
+        #nf = 32
         self.cond = nn.Linear(emb_dim, nf)
         # initialization
         # mutil.initialize_weights([self.conv1, self.conv2, self.conv3, self.conv4, self.conv5], 0.1)

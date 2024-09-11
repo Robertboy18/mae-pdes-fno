@@ -170,11 +170,21 @@ def get_backbone(args, device, encoder):
         backbone = nn.Linear(args.n_vars, args.embedding_dim).to(device)
         print("Initialized Linear Encoder")
     elif encoder == 'FNO2D':
-        backbone = FNOEncoder(n_modes=args.n_modes,
-                              in_dim=args.in_dim,
-                              out_dim=args.out_dim,
-                              n_layers=args.n_layers,
-                              embed_dim=args.encoder_width)
+        backbone = FNOEncoder(
+                n_modes=args.n_modes,
+                in_dim=args.in_dim,
+                out_dim=args.out_dim,
+                rank= args.rank,
+                n_layers= args.n_layers,
+                embed_dim= args.embed_dim,
+                prj_ff_mult= args.prj_ff_mult,
+                lift_ff_mult= args.lift_ff_mult,
+                apply_norm= True,
+                spatiotemporal_size=(16, 64, 64),
+                use_projection= args.use_projection,
+                masking_method='freq',
+                factorization=args.factorization,
+                )
     else:
         print("No backbone initialized")
         args.embedding_dim = 0

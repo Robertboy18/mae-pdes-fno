@@ -127,9 +127,12 @@ def get_args(config):
 
 def load_pretrained(args, backbone, device):
     pretrained_dict = torch.load(args.pretrained_path, map_location=f'cuda:{device}' if args.multiprocessing else device)
-    if "model_state_dict" in pretrained_dict:
-        pretrained_dict = pretrained_dict["model_state_dict"]
-    pretrained_dict = process_dict(pretrained_dict, "encoder")
+    if args.pretrained_path.split(".")[-1] == 'tar':
+        pretrained_dict = pretrained_dict['encoder']
+    else:
+        if "model_state_dict" in pretrained_dict:
+            pretrained_dict = pretrained_dict["model_state_dict"]
+        pretrained_dict = process_dict(pretrained_dict, "encoder")
 
     backbone_dict = backbone.state_dict()
     # 1. filter out unnecessary keys
@@ -141,6 +144,8 @@ def load_pretrained(args, backbone, device):
     print(f'Loaded pretrained encoder from: {args.pretrained_path}')
 
     return backbone
+
+
 
 class Embedder(nn.Module):
     def __init__(self, args):
@@ -429,18 +434,17 @@ class TimestepWrapper(nn.Module):
         if add_vars:
             print("Adding variables to input data")
 
-    def forward(self, data, variables=None, z=None):
+    def forward(self, data, data_orig = None, variables=None, z=None):
         data = data.to(self.device)
+        data_orig = data_orig.to(self.device)
         if self.encoder is not None:
             if self.add_vars:
                 variables = dict2tensor(variables).to(self.device)
                 embeddings = self.encoder(variables)
             else:
-                if self.entype == 'FNO2D':
-                    data = data.unsqueeze(1)
                 embeddings = self.encoder(data, z)
+            #print("embeddings", embeddings.shape)
             if self.entype == 'FNO2D': 
-                data = data.squeeze()
                 embeddings = torch.mean(embeddings, dim=3).squeeze() # only for spatial
                 embeddings = torch.mean(embeddings, dim=3).squeeze() # only spatial [b, c, time]
                 batch, channels, time = embeddings.shape
@@ -450,8 +454,8 @@ class TimestepWrapper(nn.Module):
                 #print(embeddings.shape)
                 embeddings = torch.mean(embeddings, dim = 1).squeeze()
                 embeddings = embeddings.reshape(batch, time*pool)
-            #print(data.shape, embeddings.shape)
-            pred = self.model(data, embeddings)
+            #print(data_orig.shape, embeddings.shape)
+            pred = self.model(data_orig, embeddings)
         else:
             pred = self.model(data)
         
@@ -501,20 +505,25 @@ class SRWrapper(nn.Module):
 
         return data_upsample
     
-    def downsample(self, data):
+    def downsample(self, data, orig=False):
         if self.pde_dim == 1:
             assert len(data.shape) == 3, "Invalid data shape"
             data_lowres = F.interpolate(data, size=self.size_low, mode='linear')
         elif self.pde_dim == 2:
-            assert len(data.shape) == 4, "Invalid data shape"
-            data_lowres = F.interpolate(data, size=(self.size_low, self.size_low), mode='bicubic')
+            #assert len(data.shape) == 4, "Invalid data shape"
+            if not orig:
+                data_lowres = F.interpolate(data, size=(data.shape[2], self.size_low, self.size_low), mode='trilinear') #bicubic for vit
+            else:
+                data_lowres = F.interpolate(data, size=(self.size_low, self.size_low), mode='bicubic') #bicubic for vit
         else:
             raise ValueError("Invalid PDE dimension")
 
         return data_lowres, data
 
-    def forward(self, data, variables=None):
-        data_lowres, data = self.downsample(data)
+    def forward(self, data, data_orig, variables=None):
+        data_lowres, data = self.downsample(data) #posi
+        data_lowres1, data1 = self.downsample(data_orig, orig=True)# no posi
+        #print("new shape", data_lowres.shape, data.shape)
         data_lowres = data_lowres.to(self.device)
         
         if self.encoder is not None:
@@ -522,9 +531,10 @@ class SRWrapper(nn.Module):
                 variables = dict2tensor(variables).to(self.device)
                 emb = self.encoder(variables)
             else:
-                if self.pde_type == 'FNO2D':
-                    data_lowres = data_lowres.unsqueeze(1)
+                #if self.pde_type == 'FNO2D':
+                #    data_lowres = data_lowres.unsqueeze(1)
                 emb = self.encoder(data_lowres) # [b, embd_dim] # unsqueeze only for FNO
+                #print("EMB", emb.shape)
                 # emb = [b, encoder.out, 16, x, y]
                 # now do mean pooling to remove teh channels or reduce it to certain dimension and move it to time
             if self.pde_type == 'FNO2D':
@@ -536,7 +546,8 @@ class SRWrapper(nn.Module):
                 emb = torch.mean(emb, dim=1) # pooling
                 emb = emb.permute(0, 2, 1, 3, 4)
                 emb = emb.reshape(batch, time*final_channels, spx, spy)
-            z_lowres = self.network(data_lowres, emb)
+                #print("emb", emb.shape, data_lowres1.shape)
+            z_lowres = self.network(data_lowres1, emb)
         else:
             z_lowres = self.network(data_lowres)
 
@@ -550,7 +561,8 @@ class SRWrapper(nn.Module):
         else:
             data_out = self.operator(z_upsample)
         
-        loss = self.criterion(data_out, data.to(self.device))
+        #print(data_out.shape, data.shape, data1.shape)
+        loss = self.criterion(data_out, data1.to(self.device))
 
         return loss 
 

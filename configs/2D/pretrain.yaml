@@ -3,7 +3,7 @@
 #######################################################################################
 batch_size: 64
 val_batch_size: 64
-num_epochs: 2
+num_epochs: 20
 description: MAE_Aug
 multiprocessing: false
 device: cuda:2
@@ -45,14 +45,13 @@ div_factor: 10
 final_div_factor: 1000
 dropout: 0.0
 emb_dropout: 0.0
-
 #######################################################################################
 # Data
 #######################################################################################
 pde: heat_adv_burgers
 pde_dim: 2
 norm_vars: false
-num_samples: 10
+num_samples: 12288
 pretrain_path: /pscratch/sd/r/rgeorge/hong/2D/pretrain/HeaAdvBurgers_12288.h5
 train_path: /pscratch/sd/r/rgeorge/hong/2D/train/HeaAdvBurgers_3072.h5
 valid_path: /pscratch/sd/r/rgeorge/hong/2D/valid/HeaAdvBurgers_768.h5

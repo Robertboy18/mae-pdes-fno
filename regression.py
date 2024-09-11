@@ -14,6 +14,42 @@ from common.utils import DataCreator, dict2tensor
 from common.augmentation import *
 from helpers.model_helper import *
 
+def get_pos_enc(u_window: torch.Tensor, start_times: list):
+    """
+    Generate positional encodings for the given u_window.
+    
+    Args:
+    u_window (torch.Tensor): Input tensor of shape [batch_size, 16, 128, 128]
+    start_times (list): List of start times for each batch item
+    
+    Returns:
+    torch.Tensor: Positional encodings of shape [batch_size, 3, 16, 128, 128]
+    """
+    batch_size, n_t, n_x, n_y = u_window.shape
+    device = u_window.device
+
+    # Generate normalized x and y coordinates
+    x = torch.linspace(0, 1, n_x, device=device)
+    y = torch.linspace(0, 1, n_y, device=device)
+    x, y = torch.meshgrid(x, y, indexing='ij')
+    
+    # Expand x and y to match the batch size and time steps
+    x = x.expand(batch_size, n_t, n_x, n_y)
+    y = y.expand(batch_size, n_t, n_x, n_y)
+    
+    # Generate normalized t coordinates
+    # Generate normalized t coordinates
+    max_time = max(start_times) + n_t
+    ts = torch.zeros(batch_size, n_t, n_x, n_y, device=device)
+    for i, start_time in enumerate(start_times):
+        t = torch.linspace(start_time, start_time + n_t, n_t, device=device) / max_time
+        ts[i] = t.view(n_t, 1, 1).expand(n_t, n_x, n_y)
+    
+    # Stack the positional encodings
+    pos = torch.stack([ts, x, y], dim=1)  # [batch_size, 3, n_t, n_x, n_y]
+    
+    return pos
+
 def train(args: argparse,
           epoch: int,
           encoder: torch.nn.Module,
@@ -69,8 +105,15 @@ def train(args: argparse,
 
             # Compute loss
             targets = dict2tensor(variables) # b, n_vars
-            preds = encoder(u_window, embedding=z, normalizer=normalizer) # b, n_vars
+            pos_enc = get_pos_enc(u_window, [0, 0, 0])  # [batch_size, 3, 16, 128, 128]
 
+            # Combine u_window and positional encodings
+            u_window_with_pos = torch.cat([u_window.unsqueeze(1), pos_enc], dim=1) 
+            u_window_with_pos = u_window_with_pos.to(device)
+            
+            preds = encoder(x=u_window_with_pos, normalizer=normalizer) # b, n_vars
+            
+            #print(preds.shape, targets.shape)
             if args.mode == "classification":
                 targets = targets.long().squeeze()
 
@@ -78,8 +121,10 @@ def train(args: argparse,
                 loss = criterion(preds, labels.to(device))
             else:
                 if args.encoder == 'FNO2D':
-                    preds = torch.mean(preds, dim = [2,3,4]).squeeze() # squeeze spatial and time # bad idea
+                    preds = torch.mean(preds, dim = [1]).squeeze() # squeeze spatial and time # bad idea
+                    preds = preds.flatten(start_dim=1)
                     preds1 = preds[:, :targets.shape[1]]
+                    #print(preds1.shape, preds1[0], targets[0])
                 else:
                     preds1 = preds
                 loss = criterion(preds1.to(device), targets.to(device))
@@ -139,8 +184,13 @@ def test(args: argparse,
 
             # Compute loss
             targets = dict2tensor(variables) # b, n_vars
-            preds = encoder(u_window, embedding=z, normalizer=normalizer) # b, n_vars
+            pos_enc = get_pos_enc(u_window, [0, 0, 0])  # [batch_size, 3, 16, 128, 128]
 
+            # Combine u_window and positional encodings
+            u_window_with_pos = torch.cat([u_window.unsqueeze(1), pos_enc], dim=1) 
+            u_window_with_pos = u_window_with_pos.to(device)
+            
+            preds = encoder(x=u_window_with_pos, normalizer=normalizer) # b, n_vars
             if args.mode == "classification":
                 targets = targets.long().squeeze()
 
@@ -148,8 +198,9 @@ def test(args: argparse,
                 loss = criterion(preds, labels.to(device))
             else:
                 if args.encoder == 'FNO2D':
-                    preds = torch.mean(preds, dim = [2,3,4]).squeeze() # squeeze spatial and time # bad idea
-                    preds1 = preds[:, :targets.shape[1]] # worst idea
+                    preds = torch.mean(preds, dim = [1]).squeeze() # squeeze spatial and time # bad idea
+                    preds = preds.flatten(start_dim=1)
+                    preds1 = preds[:, :targets.shape[1]]
                 else:
                     preds1 = preds
                 loss = criterion(preds1.to(device), targets.to(device))
@@ -213,6 +264,7 @@ def main(args: argparse):
     encoder, optimizer, scheduler = get_regression_model(args, device)
     print("Model", encoder)
     criterion = torch.nn.MSELoss() if args.mode == "regression" else torch.nn.CrossEntropyLoss()
+    print("Criterion", criterion)
 
     augmentation = get_augmentation(args, train_loader.dataset.dx, train_loader.dataset.dt)
     embedder = get_embedder(args)
@@ -240,7 +292,7 @@ def main(args: argparse):
     num_epochs = args.num_epochs
     save_path= f'/pscratch/sd/r/rgeorge/checkpoint1/{name}.pth'
     min_val_loss = 10e10
-
+    val = []
     for epoch in range(num_epochs):
         train(args, 
             epoch, 
@@ -270,6 +322,7 @@ def main(args: argparse):
          
         print(f"Validation Loss: {val_loss}\n")
         
+        val.append(val_loss)
         '''
         Uncomment if using wandb
         wandb.log({
